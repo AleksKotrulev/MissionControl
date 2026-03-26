@@ -1,13 +1,94 @@
 @page "/"
 @using MissionControl.Dashboard.Services
 @using MissionControl.Tasks
+@using MissionControl.Agents
 @inject DashboardDataService Data
 @implements IDisposable
 
 <div class="page-header">
-    <h1>Task Board</h1>
-    <p class="subtitle">Track and manage all tasks across agents</p>
+    <div class="page-header-row">
+        <div>
+            <h1>Task Board</h1>
+            <p class="subtitle">Track and manage all tasks across agents</p>
+        </div>
+        <button class="btn btn-primary" @onclick="OpenModal">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+            </svg>
+            New Task
+        </button>
+    </div>
 </div>
+
+@if (_showModal)
+{
+    <div class="modal-backdrop" @onclick="CloseModal"></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-header">
+            <h2 id="modal-title">Create Task</h2>
+            <button class="modal-close" @onclick="CloseModal" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="task-title">Title <span class="required">*</span></label>
+                <input id="task-title" type="text" @bind="_form.Title" placeholder="e.g. Write login tests for PlaywrightTests" />
+            </div>
+            <div class="form-group">
+                <label for="task-desc">Description</label>
+                <textarea id="task-desc" @bind="_form.Description" rows="3" placeholder="What needs to be done?"></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="task-agent">Assign To</label>
+                    <select id="task-agent" @bind="_form.AssignedTo">
+                        <option value="">— unassigned —</option>
+                        @foreach (var agent in _agents)
+                        {
+                            <option value="@agent.Id">@agent.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="task-priority">Priority</label>
+                    <select id="task-priority" @bind="_form.Priority">
+                        <option value="@TaskPriority.Low">Low</option>
+                        <option value="@TaskPriority.Normal">Normal</option>
+                        <option value="@TaskPriority.High">High</option>
+                        <option value="@TaskPriority.Critical">Critical</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="task-ac">Acceptance Criteria</label>
+                <textarea id="task-ac" @bind="_form.AcceptanceCriteria" rows="2" placeholder="e.g. Tests compile, follow naming conventions, have Allure attributes"></textarea>
+            </div>
+            @if (_formError != null)
+            {
+                <div class="form-error">@_formError</div>
+            }
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" @onclick="CloseModal">Cancel</button>
+            <button class="btn btn-primary" @onclick="SubmitAsync" disabled="@_submitting">
+                @if (_submitting)
+                {
+                    <span>Creating…</span>
+                }
+                else
+                {
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    <span>Create Task</span>
+                }
+            </button>
+        </div>
+    </div>
+}
 
 <div class="stats-row">
     <div class="stat-card">
@@ -107,11 +188,18 @@
 
 @code {
     private List<TaskItem> _tasks = [];
+    private List<AgentDefinition> _agents = [];
     private Timer? _timer;
+
+    private bool _showModal;
+    private bool _submitting;
+    private string? _formError;
+    private TaskItem _form = new() { Priority = TaskPriority.Normal };
 
     protected override async Task OnInitializedAsync()
     {
         await RefreshAsync();
+        _agents = await Data.GetAgentsAsync();
         _timer = new Timer(async _ =>
         {
             await RefreshAsync();
@@ -120,6 +208,45 @@
     }
 
     private async Task RefreshAsync() => _tasks = await Data.GetTasksAsync();
+
+    private void OpenModal()
+    {
+        _form = new TaskItem { Priority = TaskPriority.Normal };
+        _formError = null;
+        _showModal = true;
+    }
+
+    private void CloseModal()
+    {
+        _showModal = false;
+        _formError = null;
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.Title))
+        {
+            _formError = "Title is required.";
+            return;
+        }
+
+        _submitting = true;
+        _formError = null;
+        try
+        {
+            await Data.CreateTaskAsync(_form);
+            await RefreshAsync();
+            CloseModal();
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
 
     private List<TaskItem> GetTasksByStatus(TaskItemStatus status) =>
         _tasks.Where(t => t.Status == status).OrderByDescending(t => t.Priority).ToList();

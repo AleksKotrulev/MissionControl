@@ -43,6 +43,8 @@ public class DashboardDataService
     public Task<List<ActiveRun>> GetActiveRunsAsync() => _runner.GetActiveRunsAsync();
     public MissionControlConfig GetConfig() => _config;
 
+    public Task<TaskItem> CreateTaskAsync(TaskItem task) => _tasks.CreateAsync(task);
+
     public Task ResolveDecisionAsync(string id, string response) =>
         _comms.ResolveDecisionAsync(id, response);
 
