@@ -1,0 +1,47 @@
+@page "/agents"
+@using MissionControl.Agents
+@using MissionControl.Dashboard.Services
+@using MissionControl.Orchestrator
+@inject DashboardDataService Data
+
+<h1>Agents</h1>
+
+<div class="agent-grid">
+    @foreach (var agent in _agents)
+    {
+        var activeRun = _activeRuns.FirstOrDefault(r => r.AgentId == agent.Id);
+        <div class="agent-card status-@(activeRun != null ? "running" : agent.Status)">
+            <h3>@agent.Name</h3>
+            <div class="agent-role">@agent.Role</div>
+            <p>@agent.Description</p>
+            <div class="agent-status">
+                @if (activeRun != null)
+                {
+                    <span class="badge running">Running task @activeRun.TaskId</span>
+                }
+                else
+                {
+                    <span class="badge @agent.Status">@agent.Status</span>
+                }
+            </div>
+            <div class="capabilities">
+                @foreach (var cap in agent.Capabilities)
+                {
+                    <span class="cap-tag">@cap</span>
+                }
+            </div>
+            <div class="working-dir">@(string.IsNullOrWhiteSpace(agent.WorkingDirectory) ? "(any project)" : agent.WorkingDirectory)</div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<AgentDefinition> _agents = [];
+    private List<ActiveRun> _activeRuns = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _agents = await Data.GetAgentsAsync();
+        _activeRuns = await Data.GetActiveRunsAsync();
+    }
+}

@@ -1,0 +1,58 @@
+@page "/decisions"
+@using MissionControl.Communication
+@using MissionControl.Dashboard.Services
+@inject DashboardDataService Data
+
+<h1>Decisions</h1>
+
+<h2>Pending</h2>
+@foreach (var d in _decisions.Where(d => d.Status == "pending"))
+{
+    <div class="decision-card pending">
+        <h3>@d.Question</h3>
+        <div class="decision-meta">
+            Agent: @d.AgentId | Task: @d.TaskId | @d.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+        </div>
+        @if (!string.IsNullOrWhiteSpace(d.Context))
+        {
+            <p class="context">@d.Context</p>
+        }
+        @if (d.Options.Count > 0)
+        {
+            <div class="options">
+                @foreach (var opt in d.Options)
+                {
+                    <button class="option-btn" @onclick="() => ResolveAsync(d.Id, opt)">@opt</button>
+                }
+            </div>
+        }
+        <div class="custom-response">
+            <input type="text" @bind="_customResponse" placeholder="Or type a custom response..." />
+            <button @onclick="() => ResolveAsync(d.Id, _customResponse)">Submit</button>
+        </div>
+    </div>
+}
+
+<h2>Resolved</h2>
+@foreach (var d in _decisions.Where(d => d.Status == "resolved").OrderByDescending(d => d.ResolvedAt))
+{
+    <div class="decision-card resolved">
+        <h3>@d.Question</h3>
+        <div class="decision-meta">Resolved: @d.Response</div>
+    </div>
+}
+
+@code {
+    private List<Decision> _decisions = [];
+    private string _customResponse = "";
+
+    protected override async Task OnInitializedAsync() =>
+        _decisions = await Data.GetDecisionsAsync();
+
+    private async Task ResolveAsync(string id, string response)
+    {
+        await Data.ResolveDecisionAsync(id, response);
+        _decisions = await Data.GetDecisionsAsync();
+        _customResponse = "";
+    }
+}

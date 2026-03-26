@@ -1,0 +1,285 @@
+:root {
+    --bg: #0f1117;
+    --surface: #1a1d27;
+    --border: #2a2d3a;
+    --text: #e1e4ec;
+    --text-muted: #8b8fa3;
+    --accent: #6366f1;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --danger: #ef4444;
+    --info: #3b82f6;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+}
+
+.layout {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 220px;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 1rem;
+    flex-shrink: 0;
+}
+
+.sidebar-header h2 {
+    font-size: 1.1rem;
+    color: var(--accent);
+    margin-bottom: 1.5rem;
+}
+
+.nav-menu {
+    list-style: none;
+}
+
+.nav-menu li a {
+    display: block;
+    padding: 0.5rem 0.75rem;
+    color: var(--text-muted);
+    text-decoration: none;
+    border-radius: 6px;
+    margin-bottom: 2px;
+}
+
+.nav-menu li a:hover {
+    background: var(--border);
+    color: var(--text);
+}
+
+.content {
+    flex: 1;
+    padding: 2rem;
+    overflow-y: auto;
+}
+
+h1 { font-size: 1.5rem; margin-bottom: 1.5rem; }
+h2 { font-size: 1.2rem; margin: 1.5rem 0 1rem; }
+h3 { font-size: 1rem; margin-bottom: 0.5rem; }
+
+/* Kanban Board */
+.kanban-board {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1rem;
+}
+
+.kanban-column {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    min-height: 200px;
+}
+
+.kanban-column h3 {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.kanban-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    border-left: 3px solid var(--border);
+}
+
+.kanban-card.priority-critical { border-left-color: var(--danger); }
+.kanban-card.priority-high { border-left-color: var(--warning); }
+.kanban-card.priority-normal { border-left-color: var(--info); }
+.kanban-card.priority-low { border-left-color: var(--text-muted); }
+
+.card-title { font-weight: 600; font-size: 0.9rem; margin-bottom: 0.25rem; }
+.card-meta { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+
+/* Badges */
+.badge {
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: var(--border);
+    color: var(--text-muted);
+}
+
+.badge.running { background: var(--accent); color: white; }
+.badge.active { background: var(--success); color: white; }
+.badge.inactive { background: var(--text-muted); color: var(--bg); }
+.badge.delegation { background: var(--info); color: white; }
+.badge.report { background: var(--success); color: white; }
+.badge.notification { background: var(--warning); color: var(--bg); }
+.badge.running { background: var(--accent); color: white; }
+.badge.completed { background: var(--success); color: white; }
+.badge.stalled { background: var(--danger); color: white; }
+
+/* Agent Grid */
+.agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+}
+
+.agent-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+}
+
+.agent-card.status-running { border-color: var(--accent); }
+.agent-role { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 0.5rem; }
+
+.capabilities { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 0.5rem; }
+.cap-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: var(--border); color: var(--text-muted); }
+.working-dir { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.5rem; font-family: monospace; }
+
+/* Mission cards */
+.mission-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.progress-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.75rem 0 0.25rem;
+}
+
+.progress-fill {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 4px;
+    transition: width 0.3s;
+}
+
+.progress-text { font-size: 0.8rem; color: var(--text-muted); }
+
+.task-row {
+    padding: 0.25rem 0;
+    font-size: 0.85rem;
+    border-bottom: 1px solid var(--border);
+}
+
+.task-status-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 4px;
+}
+
+.task-status-dot.status-done { background: var(--success); }
+.task-status-dot.status-inprogress { background: var(--accent); }
+.task-status-dot.status-notstarted { background: var(--text-muted); }
+.task-status-dot.status-failed { background: var(--danger); }
+
+/* Activity Feed */
+.activity-event {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+    display: flex;
+    gap: 1rem;
+}
+
+.timestamp { color: var(--text-muted); font-family: monospace; font-size: 0.75rem; white-space: nowrap; }
+.event-type { font-weight: 600; min-width: 150px; }
+.description { color: var(--text-muted); }
+
+/* Decisions */
+.decision-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.decision-card.pending { border-color: var(--warning); }
+.decision-meta { font-size: 0.8rem; color: var(--text-muted); margin: 0.5rem 0; }
+.context { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.5rem; }
+
+.options { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+.option-btn {
+    padding: 0.4rem 0.8rem;
+    background: var(--accent);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.option-btn:hover { opacity: 0.9; }
+
+.custom-response { display: flex; gap: 0.5rem; }
+.custom-response input { flex: 1; padding: 0.4rem; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; color: var(--text); }
+.custom-response button { padding: 0.4rem 0.8rem; background: var(--border); color: var(--text); border: none; border-radius: 4px; cursor: pointer; }
+
+/* Inbox */
+.filter-bar { display: flex; gap: 0.5rem; margin-bottom: 1rem; }
+.filter-bar button { padding: 0.4rem 0.8rem; background: var(--surface); border: 1px solid var(--border); border-radius: 4px; color: var(--text-muted); cursor: pointer; }
+.filter-bar button.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+.inbox-message {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+}
+
+.inbox-message.status-unread { border-left: 3px solid var(--accent); }
+.msg-header { display: flex; gap: 0.5rem; align-items: center; font-size: 0.8rem; color: var(--text-muted); }
+.msg-subject { font-weight: 600; margin: 0.25rem 0; }
+.msg-body { font-size: 0.85rem; color: var(--text-muted); white-space: pre-wrap; }
+
+/* Settings */
+.settings-form { max-width: 500px; }
+.form-group { margin-bottom: 1rem; }
+.form-group label { display: block; font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem; }
+.form-group input {
+    width: 100%;
+    padding: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+}
+
+.save-btn { padding: 0.5rem 1.5rem; background: var(--accent); color: white; border: none; border-radius: 4px; cursor: pointer; }
+.saved-msg { color: var(--success); margin-left: 1rem; font-size: 0.85rem; }
+
+.emergency-btn {
+    padding: 0.75rem 2rem;
+    background: var(--danger);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    font-weight: bold;
+    cursor: pointer;
+    font-size: 1rem;
+}
+.emergency-btn:hover { opacity: 0.9; }
+
+.agent { font-family: monospace; font-size: 0.75rem; color: var(--accent); }
+.attempts { font-size: 0.7rem; color: var(--warning); }
+.subtasks { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }

@@ -1,0 +1,67 @@
+@page "/settings"
+@using MissionControl.Config
+@using MissionControl.Dashboard.Services
+@inject DashboardDataService Data
+
+<h1>Settings</h1>
+
+<div class="settings-form">
+    <div class="form-group">
+        <label>Max Parallel Agents</label>
+        <input type="number" @bind="_config.MaxParallelAgents" min="1" max="10" />
+    </div>
+    <div class="form-group">
+        <label>Dispatch Interval (seconds)</label>
+        <input type="number" @bind="_config.DispatchIntervalSeconds" min="5" max="120" />
+    </div>
+    <div class="form-group">
+        <label>Max Task Retries</label>
+        <input type="number" @bind="_config.MaxTaskRetries" min="1" max="10" />
+    </div>
+    <div class="form-group">
+        <label>Task Timeout (minutes)</label>
+        <input type="number" @bind="_config.TaskTimeoutMinutes" min="5" max="120" />
+    </div>
+    <div class="form-group">
+        <label>Max Turns Per Session</label>
+        <input type="number" @bind="_config.MaxTurnsPerSession" min="10" max="200" />
+    </div>
+    <div class="form-group">
+        <label>Max Continuations</label>
+        <input type="number" @bind="_config.MaxContinuations" min="1" max="10" />
+    </div>
+    <div class="form-group">
+        <label>Claude Code Path</label>
+        <input type="text" @bind="_config.ClaudeCodePath" />
+    </div>
+    <div class="form-group">
+        <label>Working Directory</label>
+        <input type="text" @bind="_config.WorkingDirectory" />
+    </div>
+
+    <button class="save-btn" @onclick="SaveAsync">Save Settings</button>
+    @if (_saved)
+    {
+        <span class="saved-msg">Settings saved (restart daemon to apply)</span>
+    }
+
+    <hr />
+    <h2>Emergency Stop</h2>
+    <p>Kills all running agent sessions immediately.</p>
+    <button class="emergency-btn" @onclick="EmergencyStopAsync">EMERGENCY STOP</button>
+</div>
+
+@code {
+    private MissionControlConfig _config = new();
+    private bool _saved;
+
+    protected override void OnInitialized() => _config = Data.GetConfig();
+
+    private async Task SaveAsync()
+    {
+        await Data.SaveConfigAsync(_config);
+        _saved = true;
+    }
+
+    private async Task EmergencyStopAsync() => await Data.EmergencyStopAsync();
+}

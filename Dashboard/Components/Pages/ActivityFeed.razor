@@ -1,0 +1,42 @@
+@page "/activity"
+@using MissionControl.Communication
+@using MissionControl.Dashboard.Services
+@inject DashboardDataService Data
+@implements IDisposable
+
+<h1>Activity Feed</h1>
+
+<div class="activity-feed">
+    @foreach (var evt in _events.OrderByDescending(e => e.Timestamp))
+    {
+        <div class="activity-event type-@evt.EventType.Replace('_', '-')">
+            <span class="timestamp">@evt.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</span>
+            <span class="event-type">@evt.EventType</span>
+            <span class="description">@evt.Description</span>
+        </div>
+    }
+</div>
+
+@if (_events.Count == 0)
+{
+    <p>No activity yet.</p>
+}
+
+@code {
+    private List<ActivityEvent> _events = [];
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _timer = new Timer(async _ =>
+        {
+            await RefreshAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, 3000, 3000);
+    }
+
+    private async Task RefreshAsync() => _events = await Data.GetActivityLogAsync();
+
+    public void Dispose() => _timer?.Dispose();
+}

@@ -1,0 +1,59 @@
+@page "/"
+@using MissionControl.Dashboard.Services
+@using MissionControl.Tasks
+@inject DashboardDataService Data
+@implements IDisposable
+
+<h1>Task Board</h1>
+
+<div class="kanban-board">
+    @foreach (var status in new[] { TaskItemStatus.NotStarted, TaskItemStatus.InProgress, TaskItemStatus.Done, TaskItemStatus.Failed })
+    {
+        <div class="kanban-column">
+            <h3>@status (@GetTasksByStatus(status).Count)</h3>
+            @foreach (var task in GetTasksByStatus(status))
+            {
+                <div class="kanban-card priority-@task.Priority.ToString().ToLower()">
+                    <div class="card-title">@task.Title</div>
+                    <div class="card-meta">
+                        <span class="badge">@task.Priority</span>
+                        @if (!string.IsNullOrWhiteSpace(task.AssignedTo))
+                        {
+                            <span class="agent">@task.AssignedTo</span>
+                        }
+                        @if (task.AttemptCount > 0)
+                        {
+                            <span class="attempts">Attempt @task.AttemptCount</span>
+                        }
+                    </div>
+                    @if (task.SubTasks.Count > 0)
+                    {
+                        <div class="subtasks">@task.SubTasks.Count(s => s.Completed)/@task.SubTasks.Count subtasks</div>
+                    }
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<TaskItem> _tasks = [];
+    private Timer? _timer;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshAsync();
+        _timer = new Timer(async _ =>
+        {
+            await RefreshAsync();
+            await InvokeAsync(StateHasChanged);
+        }, null, 5000, 5000);
+    }
+
+    private async Task RefreshAsync() => _tasks = await Data.GetTasksAsync();
+
+    private List<TaskItem> GetTasksByStatus(TaskItemStatus status) =>
+        _tasks.Where(t => t.Status == status).OrderByDescending(t => t.Priority).ToList();
+
+    public void Dispose() => _timer?.Dispose();
+}

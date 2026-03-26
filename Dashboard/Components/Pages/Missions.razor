@@ -1,0 +1,53 @@
+@page "/missions"
+@using MissionControl.Dashboard.Services
+@using MissionControl.Missions
+@using MissionControl.Tasks
+@inject DashboardDataService Data
+
+<h1>Missions</h1>
+
+@foreach (var mission in _missions)
+{
+    var missionTasks = _tasks.Where(t => mission.TaskIds.Contains(t.Id)).ToList();
+    var done = missionTasks.Count(t => t.Status == TaskItemStatus.Done);
+    var total = missionTasks.Count;
+    var pct = total > 0 ? (done * 100 / total) : 0;
+
+    <div class="mission-card status-@mission.Status.ToString().ToLower()">
+        <h3>@mission.Title <span class="badge @mission.Status.ToString().ToLower()">@mission.Status</span></h3>
+        <p>@mission.Description</p>
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: @(pct)%"></div>
+        </div>
+        <div class="progress-text">@done / @total tasks complete (@pct%)</div>
+        <div class="task-list">
+            @foreach (var task in missionTasks)
+            {
+                <div class="task-row">
+                    <span class="task-status-dot status-@task.Status.ToString().ToLower()"></span>
+                    @task.Title — @task.Status
+                    @if (!string.IsNullOrWhiteSpace(task.AssignedTo))
+                    {
+                        <span class="agent">(@task.AssignedTo)</span>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (_missions.Count == 0)
+{
+    <p>No missions yet. Create one via the API.</p>
+}
+
+@code {
+    private List<Mission> _missions = [];
+    private List<TaskItem> _tasks = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _missions = await Data.GetMissionsAsync();
+        _tasks = await Data.GetTasksAsync();
+    }
+}

@@ -1,0 +1,39 @@
+@page "/inbox"
+@using MissionControl.Communication
+@using MissionControl.Dashboard.Services
+@inject DashboardDataService Data
+
+<h1>Inbox</h1>
+
+<div class="filter-bar">
+    <button class="@(_filter == "all" ? "active" : "")" @onclick="@(() => SetFilter("all"))">All</button>
+    <button class="@(_filter == "delegation" ? "active" : "")" @onclick="@(() => SetFilter("delegation"))">Delegations</button>
+    <button class="@(_filter == "report" ? "active" : "")" @onclick="@(() => SetFilter("report"))">Reports</button>
+    <button class="@(_filter == "notification" ? "active" : "")" @onclick="@(() => SetFilter("notification"))">Notifications</button>
+</div>
+
+@foreach (var msg in GetFiltered().OrderByDescending(m => m.CreatedAt))
+{
+    <div class="inbox-message type-@msg.Type status-@msg.Status">
+        <div class="msg-header">
+            <span class="from">@msg.From</span> &rarr; <span class="to">@msg.To</span>
+            <span class="badge @msg.Type">@msg.Type</span>
+            <span class="timestamp">@msg.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+        </div>
+        <div class="msg-subject">@msg.Subject</div>
+        <div class="msg-body">@msg.Body</div>
+    </div>
+}
+
+@code {
+    private List<InboxMessage> _messages = [];
+    private string _filter = "all";
+
+    protected override async Task OnInitializedAsync() =>
+        _messages = await Data.GetInboxAsync();
+
+    private void SetFilter(string filter) => _filter = filter;
+
+    private IEnumerable<InboxMessage> GetFiltered() =>
+        _filter == "all" ? _messages : _messages.Where(m => m.Type == _filter);
+}
