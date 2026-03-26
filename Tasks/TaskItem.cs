@@ -19,4 +19,9 @@ public class TaskItem
     public DateTime? CompletedAt { get; set; }
     public string? MissionId { get; set; }
     public List<TaskComment> Comments { get; set; } = [];
+    public string? ParentTaskId { get; set; }
+    public string? ValidationResult { get; set; }
+    public string? ValidationFeedback { get; set; }
+    public string? ValidatedBy { get; set; }
+    public string? LastOutput { get; set; }
 }

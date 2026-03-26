@@ -44,6 +44,8 @@ public class DashboardDataService
     public MissionControlConfig GetConfig() => _config;
 
     public Task<TaskItem> CreateTaskAsync(TaskItem task) => _tasks.CreateAsync(task);
+    public Task<TaskItem> UpdateTaskAsync(TaskItem task) => _tasks.UpdateAsync(task);
+    public Task DeleteTaskAsync(string id) => _tasks.DeleteAsync(id);
 
     public Task ResolveDecisionAsync(string id, string response) =>
         _comms.ResolveDecisionAsync(id, response);

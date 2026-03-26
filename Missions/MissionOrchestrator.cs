@@ -87,6 +87,17 @@ public class MissionOrchestrator
         await JsonDataStore.WriteAsync(DataPaths.Missions, missions);
     }
 
+    public async Task AddTasksToMissionAsync(string missionId, List<string> taskIds)
+    {
+        await JsonDataStore.MutateAsync<List<Mission>>(DataPaths.Missions, missions =>
+        {
+            var mission = missions.FirstOrDefault(m => m.Id == missionId);
+            if (mission != null)
+                mission.TaskIds.AddRange(taskIds);
+            return missions;
+        });
+    }
+
     public async Task AddHistoryEntryAsync(string missionId, string taskId, string agentId, string outcome)
     {
         await JsonDataStore.MutateAsync<List<Mission>>(DataPaths.Missions, missions =>

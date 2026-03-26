@@ -87,4 +87,45 @@ public class TaskManager
             return tasks;
         });
     }
+
+    public async Task<List<TaskItem>> GetAwaitingValidationAsync()
+    {
+        var tasks = await GetAllAsync();
+        return tasks.Where(t => t.Status == TaskItemStatus.AwaitingValidation).ToList();
+    }
+
+    public async Task<List<TaskItem>> GetChildTasksAsync(string parentTaskId)
+    {
+        var tasks = await GetAllAsync();
+        return tasks.Where(t => t.ParentTaskId == parentTaskId).ToList();
+    }
+
+    public async Task<List<TaskItem>> CreateBatchAsync(List<TaskItem> newTasks)
+    {
+        foreach (var task in newTasks)
+        {
+            if (string.IsNullOrWhiteSpace(task.Id))
+                task.Id = Guid.NewGuid().ToString("N")[..8];
+            task.CreatedAt = DateTime.UtcNow;
+            task.Status = TaskItemStatus.NotStarted;
+        }
+
+        await JsonDataStore.MutateAsync<List<TaskItem>>(DataPaths.Tasks, tasks =>
+        {
+            tasks.AddRange(newTasks);
+            return tasks;
+        });
+
+        return newTasks;
+    }
+
+    public async Task UpdateFieldsAsync(string id, Action<TaskItem> mutate)
+    {
+        await JsonDataStore.MutateAsync<List<TaskItem>>(DataPaths.Tasks, tasks =>
+        {
+            var task = tasks.FirstOrDefault(t => t.Id == id);
+            if (task != null) mutate(task);
+            return tasks;
+        });
+    }
 }

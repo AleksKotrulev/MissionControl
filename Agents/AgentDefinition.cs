@@ -9,6 +9,7 @@ public class AgentDefinition
     public string Instructions { get; set; } = "";
     public List<string> Capabilities { get; set; } = [];
     public List<string> SkillIds { get; set; } = [];
+    public AgentType AgentType { get; set; } = AgentType.Builder;
     public string Status { get; set; } = "active";
     public string WorkingDirectory { get; set; } = "";
 }

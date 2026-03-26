@@ -6,5 +6,6 @@ public enum TaskItemStatus
     InProgress,
     Done,
     Failed,
-    Skipped
+    Skipped,
+    AwaitingValidation
 }

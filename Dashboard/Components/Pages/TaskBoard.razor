@@ -2,6 +2,7 @@
 @using MissionControl.Dashboard.Services
 @using MissionControl.Tasks
 @using MissionControl.Agents
+@using MissionControl.Communication
 @inject DashboardDataService Data
 @implements IDisposable
 
@@ -11,7 +12,7 @@
             <h1>Task Board</h1>
             <p class="subtitle">Track and manage all tasks across agents</p>
         </div>
-        <button class="btn btn-primary" @onclick="OpenModal">
+        <button class="btn btn-primary" @onclick="OpenCreateModal">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
             </svg>
@@ -25,7 +26,7 @@
     <div class="modal-backdrop" @onclick="CloseModal"></div>
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div class="modal-header">
-            <h2 id="modal-title">Create Task</h2>
+            <h2 id="modal-title">@(_isEditing ? "Edit Task" : "Create Task")</h2>
             <button class="modal-close" @onclick="CloseModal" aria-label="Close">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -46,9 +47,14 @@
                     <label for="task-agent">Assign To</label>
                     <select id="task-agent" @bind="_form.AssignedTo">
                         <option value="">— unassigned —</option>
-                        @foreach (var agent in _agents)
+                        @foreach (var group in _agents.GroupBy(a => a.AgentType).OrderBy(g => g.Key))
                         {
-                            <option value="@agent.Id">@agent.Name</option>
+                            <optgroup label="@FormatAgentType(group.Key)">
+                                @foreach (var agent in group.OrderBy(a => a.Name))
+                                {
+                                    <option value="@agent.Id">@agent.Name — @agent.Role</option>
+                                }
+                            </optgroup>
                         }
                     </select>
                 </div>
@@ -76,15 +82,191 @@
             <button class="btn btn-primary" @onclick="SubmitAsync" disabled="@_submitting">
                 @if (_submitting)
                 {
-                    <span>Creating…</span>
+                    <span>@(_isEditing ? "Saving…" : "Creating…")</span>
                 }
                 else
                 {
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                         <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
                     </svg>
-                    <span>Create Task</span>
+                    <span>@(_isEditing ? "Save Changes" : "Create Task")</span>
                 }
+            </button>
+        </div>
+    </div>
+}
+
+@if (_showDetails && _detailTask != null)
+{
+    <div class="modal-backdrop" @onclick="CloseDetails"></div>
+    <div class="modal modal-wide" role="dialog" aria-modal="true" aria-labelledby="details-title">
+        <div class="modal-header">
+            <h2 id="details-title">@_detailTask.Title</h2>
+            <button class="modal-close" @onclick="CloseDetails" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body detail-body">
+            <div class="detail-grid">
+                <div class="detail-field">
+                    <span class="detail-label">Status</span>
+                    <span class="badge @_detailTask.Status.ToString()">@FormatStatus(_detailTask.Status)</span>
+                </div>
+                <div class="detail-field">
+                    <span class="detail-label">Priority</span>
+                    <span class="badge">@_detailTask.Priority</span>
+                </div>
+                <div class="detail-field">
+                    <span class="detail-label">Assigned To</span>
+                    <span>@(string.IsNullOrWhiteSpace(_detailTask.AssignedTo) ? "Unassigned" : _detailTask.AssignedTo)</span>
+                </div>
+                <div class="detail-field">
+                    <span class="detail-label">Attempts</span>
+                    <span>@_detailTask.AttemptCount</span>
+                </div>
+                <div class="detail-field">
+                    <span class="detail-label">Created</span>
+                    <span>@_detailTask.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
+                </div>
+                @if (_detailTask.CompletedAt != null)
+                {
+                    <div class="detail-field">
+                        <span class="detail-label">Completed</span>
+                        <span>@_detailTask.CompletedAt.Value.ToString("yyyy-MM-dd HH:mm:ss") UTC</span>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(_detailTask.ParentTaskId))
+                {
+                    <div class="detail-field">
+                        <span class="detail-label">Parent Task</span>
+                        <span>@_detailTask.ParentTaskId</span>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(_detailTask.MissionId))
+                {
+                    <div class="detail-field">
+                        <span class="detail-label">Mission</span>
+                        <span>@_detailTask.MissionId</span>
+                    </div>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(_detailTask.Description))
+            {
+                <div class="detail-section">
+                    <h3>Description</h3>
+                    <div class="detail-text">@_detailTask.Description</div>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_detailTask.AcceptanceCriteria))
+            {
+                <div class="detail-section">
+                    <h3>Acceptance Criteria</h3>
+                    <div class="detail-text">@_detailTask.AcceptanceCriteria</div>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_detailTask.ValidationFeedback))
+            {
+                <div class="detail-section">
+                    <h3>Validation Feedback <span class="badge @(_detailTask.ValidationResult == "PASS" ? "badge-success" : "badge-danger")">@_detailTask.ValidationResult</span></h3>
+                    <div class="detail-text">@_detailTask.ValidationFeedback</div>
+                </div>
+            }
+
+            @{
+                var children = _tasks.Where(t => t.ParentTaskId == _detailTask.Id).ToList();
+            }
+            @if (children.Count > 0)
+            {
+                <div class="detail-section">
+                    <h3>Child Tasks <span class="count">@children.Count</span></h3>
+                    <div class="detail-table">
+                        @foreach (var child in children)
+                        {
+                            <div class="detail-table-row">
+                                <span class="badge @child.Status.ToString()">@FormatStatus(child.Status)</span>
+                                <span class="detail-table-title" @onclick="() => OpenDetails(child)">@child.Title</span>
+                                <span class="detail-table-agent">@child.AssignedTo</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (_detailMessages.Count > 0)
+            {
+                <div class="detail-section">
+                    <h3>Agent Reports <span class="count">@_detailMessages.Count</span></h3>
+                    @foreach (var msg in _detailMessages.OrderByDescending(m => m.CreatedAt))
+                    {
+                        <div class="detail-report">
+                            <div class="detail-report-header">
+                                <span class="badge @(msg.Type == "report" ? "badge-success" : "badge-info")">@msg.Type</span>
+                                <span class="detail-report-from">@msg.From</span>
+                                <span class="detail-report-time">@msg.CreatedAt.ToString("HH:mm:ss")</span>
+                            </div>
+                            <div class="detail-report-subject">@msg.Subject</div>
+                            <pre class="detail-output">@msg.Body</pre>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (_detailActivity.Count > 0)
+            {
+                <div class="detail-section">
+                    <h3>Activity Log <span class="count">@_detailActivity.Count</span></h3>
+                    <div class="detail-activity">
+                        @foreach (var evt in _detailActivity.OrderByDescending(e => e.Timestamp))
+                        {
+                            <div class="detail-activity-row">
+                                <span class="detail-activity-time">@evt.Timestamp.ToString("HH:mm:ss")</span>
+                                <span class="badge badge-info">@evt.EventType</span>
+                                <span>@evt.Description</span>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(_detailTask.LastOutput))
+            {
+                <div class="detail-section">
+                    <h3>Last Agent Output</h3>
+                    <pre class="detail-output">@_detailTask.LastOutput</pre>
+                </div>
+            }
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" @onclick="() => OpenEditModal(_detailTask)">Edit</button>
+            <button class="btn btn-primary" @onclick="CloseDetails">Close</button>
+        </div>
+    </div>
+}
+
+@if (_showDeleteConfirm)
+{
+    <div class="modal-backdrop" @onclick="CancelDelete"></div>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="delete-title">
+        <div class="modal-header">
+            <h2 id="delete-title">Delete Task</h2>
+            <button class="modal-close" @onclick="CancelDelete" aria-label="Close">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
+        </div>
+        <div class="modal-body">
+            <p>Are you sure you want to delete <strong>@_deleteTarget?.Title</strong>? This cannot be undone.</p>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" @onclick="CancelDelete">Cancel</button>
+            <button class="btn btn-danger" @onclick="ConfirmDeleteAsync" disabled="@_submitting">
+                @(_submitting ? "Deleting…" : "Delete")
             </button>
         </div>
     </div>
@@ -130,7 +312,7 @@
 </div>
 
 <div class="kanban-board">
-    @{ var statusList = new[] { TaskItemStatus.NotStarted, TaskItemStatus.InProgress, TaskItemStatus.Done, TaskItemStatus.Failed }; }
+    @{ var statusList = new[] { TaskItemStatus.NotStarted, TaskItemStatus.InProgress, TaskItemStatus.AwaitingValidation, TaskItemStatus.Done, TaskItemStatus.Failed }; }
     @foreach (var status in statusList)
     {
         var tasks = GetTasksByStatus(status);
@@ -138,6 +320,7 @@
         {
             TaskItemStatus.NotStarted => "col-notstarted",
             TaskItemStatus.InProgress => "col-inprogress",
+            TaskItemStatus.AwaitingValidation => "col-validation",
             TaskItemStatus.Done => "col-done",
             TaskItemStatus.Failed => "col-failed",
             _ => ""
@@ -158,10 +341,48 @@
                 @foreach (var task in tasks)
                 {
                     <div class="kanban-card priority-@task.Priority.ToString().ToLower()" style="animation-delay: @(idx * 50)ms">
-                        <div class="card-title">@task.Title</div>
+                        <div class="card-header-row">
+                            <div class="card-title">
+                                @task.Title
+                                @if (!string.IsNullOrWhiteSpace(task.ParentTaskId))
+                                {
+                                    <span class="badge badge-child" title="Child of @task.ParentTaskId">Child</span>
+                                }
+                            </div>
+                            <div class="card-actions">
+                                <button class="btn-icon" title="View Details" @onclick="() => OpenDetails(task)">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="14" height="14">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                </button>
+                                <button class="btn-icon" title="Edit" @onclick="() => OpenEditModal(task)">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="14" height="14">
+                                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                                    </svg>
+                                </button>
+                                <button class="btn-icon btn-icon-danger" title="Delete" @onclick="() => RequestDelete(task)">
+                                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" width="14" height="14">
+                                        <polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
                         @if (!string.IsNullOrWhiteSpace(task.Description))
                         {
-                            <div class="card-description">@task.Description</div>
+                            <div class="card-description">
+                                @if (task.Description.Length <= 20 || _expandedDescriptions.Contains(task.Id))
+                                {
+                                    @task.Description
+                                    @if (task.Description.Length > 20)
+                                    {
+                                        <button class="btn-link" @onclick="() => _expandedDescriptions.Remove(task.Id)">Show less</button>
+                                    }
+                                }
+                                else
+                                {
+                                    @task.Description[..20]<span>… </span><button class="btn-link" @onclick="() => _expandedDescriptions.Add(task.Id)">Show more</button>
+                                }
+                            </div>
                         }
                         <div class="card-meta">
                             <span class="badge">@task.Priority</span>
@@ -178,6 +399,20 @@
                         {
                             <div class="subtasks">@task.SubTasks.Count(s => s.Completed)/@task.SubTasks.Count subtasks</div>
                         }
+                        @{
+                            var childCount = _tasks.Count(t => t.ParentTaskId == task.Id);
+                            var doneChildren = _tasks.Count(t => t.ParentTaskId == task.Id && t.Status == TaskItemStatus.Done);
+                        }
+                        @if (childCount > 0)
+                        {
+                            <div class="subtasks">@doneChildren/@childCount children complete</div>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(task.ValidationFeedback))
+                        {
+                            <div class="validation-feedback" title="@task.ValidationFeedback">
+                                Oracle: @(task.ValidationFeedback.Length > 60 ? task.ValidationFeedback[..60] + "..." : task.ValidationFeedback)
+                            </div>
+                        }
                     </div>
                     idx++;
                 }
@@ -190,11 +425,21 @@
     private List<TaskItem> _tasks = [];
     private List<AgentDefinition> _agents = [];
     private Timer? _timer;
+    private HashSet<string> _expandedDescriptions = [];
 
     private bool _showModal;
+    private bool _isEditing;
     private bool _submitting;
     private string? _formError;
     private TaskItem _form = new() { Priority = TaskPriority.Normal };
+
+    private bool _showDeleteConfirm;
+    private TaskItem? _deleteTarget;
+
+    private bool _showDetails;
+    private TaskItem? _detailTask;
+    private List<InboxMessage> _detailMessages = [];
+    private List<ActivityEvent> _detailActivity = [];
 
     protected override async Task OnInitializedAsync()
     {
@@ -209,10 +454,43 @@
 
     private async Task RefreshAsync() => _tasks = await Data.GetTasksAsync();
 
-    private void OpenModal()
+    private void OpenCreateModal()
     {
         _form = new TaskItem { Priority = TaskPriority.Normal };
         _formError = null;
+        _isEditing = false;
+        _showModal = true;
+    }
+
+    private void OpenEditModal(TaskItem task)
+    {
+        _form = new TaskItem
+        {
+            Id = task.Id,
+            Title = task.Title,
+            Description = task.Description,
+            AssignedTo = task.AssignedTo,
+            Priority = task.Priority,
+            AcceptanceCriteria = task.AcceptanceCriteria,
+            Status = task.Status,
+            SubTasks = task.SubTasks,
+            BlockedBy = task.BlockedBy,
+            Collaborators = task.Collaborators,
+            EstimatedMinutes = task.EstimatedMinutes,
+            ActualMinutes = task.ActualMinutes,
+            AttemptCount = task.AttemptCount,
+            CreatedAt = task.CreatedAt,
+            CompletedAt = task.CompletedAt,
+            MissionId = task.MissionId,
+            Comments = task.Comments,
+            ParentTaskId = task.ParentTaskId,
+            ValidationResult = task.ValidationResult,
+            ValidationFeedback = task.ValidationFeedback,
+            ValidatedBy = task.ValidatedBy,
+            LastOutput = task.LastOutput
+        };
+        _formError = null;
+        _isEditing = true;
         _showModal = true;
     }
 
@@ -234,7 +512,11 @@
         _formError = null;
         try
         {
-            await Data.CreateTaskAsync(_form);
+            if (_isEditing)
+                await Data.UpdateTaskAsync(_form);
+            else
+                await Data.CreateTaskAsync(_form);
+
             await RefreshAsync();
             CloseModal();
         }
@@ -248,6 +530,60 @@
         }
     }
 
+    private void RequestDelete(TaskItem task)
+    {
+        _deleteTarget = task;
+        _showDeleteConfirm = true;
+    }
+
+    private void CancelDelete()
+    {
+        _deleteTarget = null;
+        _showDeleteConfirm = false;
+    }
+
+    private async Task ConfirmDeleteAsync()
+    {
+        if (_deleteTarget == null) return;
+
+        _submitting = true;
+        try
+        {
+            await Data.DeleteTaskAsync(_deleteTarget.Id);
+            await RefreshAsync();
+            CancelDelete();
+        }
+        catch (Exception ex)
+        {
+            _formError = ex.Message;
+        }
+        finally
+        {
+            _submitting = false;
+        }
+    }
+
+    private async Task OpenDetails(TaskItem task)
+    {
+        _detailTask = task;
+        _showDetails = true;
+        CloseModal();
+
+        var inbox = await Data.GetInboxAsync();
+        _detailMessages = inbox.Where(m => m.TaskId == task.Id).ToList();
+
+        var activity = await Data.GetActivityLogAsync();
+        _detailActivity = activity.Where(e => e.TaskId == task.Id).ToList();
+    }
+
+    private void CloseDetails()
+    {
+        _showDetails = false;
+        _detailTask = null;
+        _detailMessages = [];
+        _detailActivity = [];
+    }
+
     private List<TaskItem> GetTasksByStatus(TaskItemStatus status) =>
         _tasks.Where(t => t.Status == status).OrderByDescending(t => t.Priority).ToList();
 
@@ -255,7 +591,17 @@
     {
         TaskItemStatus.NotStarted => "Not Started",
         TaskItemStatus.InProgress => "In Progress",
+        TaskItemStatus.AwaitingValidation => "Awaiting Validation",
         _ => status.ToString()
+    };
+
+    private static string FormatAgentType(AgentType type) => type switch
+    {
+        AgentType.Coordinator => "Coordinators",
+        AgentType.Gate => "Gates",
+        AgentType.Analyst => "Analysts",
+        AgentType.Builder => "Builders",
+        _ => type.ToString()
     };
 
     public void Dispose() => _timer?.Dispose();

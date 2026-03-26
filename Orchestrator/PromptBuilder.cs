@@ -9,8 +9,13 @@ namespace MissionControl.Orchestrator;
 public class PromptBuilder
 {
     private readonly CommunicationManager _comms;
+    private readonly AgentRegistry _agents;
 
-    public PromptBuilder(CommunicationManager comms) => _comms = comms;
+    public PromptBuilder(CommunicationManager comms, AgentRegistry agents)
+    {
+        _comms = comms;
+        _agents = agents;
+    }
 
     public async Task<string> BuildTaskPromptAsync(
         AgentDefinition agent, TaskItem task, Mission? mission)
@@ -67,11 +72,24 @@ public class PromptBuilder
         sb.AppendLine("- On completion, summarize what you did and any follow-up actions needed.");
         sb.AppendLine();
 
-        // 4. Context overlays
+        // 4. Agent-type-specific sections
+        if (agent.AgentType == AgentType.Coordinator)
+            await AppendCoordinatorInstructions(sb);
+        else if (agent.AgentType == AgentType.Gate)
+            AppendGateInstructions(sb, task);
+        else if (agent.AgentType == AgentType.Analyst)
+            AppendAnalystInstructions(sb);
+
+        // 5. Context overlays
         if (task.AttemptCount > 0)
         {
             sb.AppendLine("# Retry Context");
             sb.AppendLine($"This is attempt #{task.AttemptCount + 1}. Previous attempts failed.");
+            if (!string.IsNullOrWhiteSpace(task.ValidationFeedback))
+            {
+                sb.AppendLine("## Validation Feedback from Previous Attempt");
+                sb.AppendLine(task.ValidationFeedback);
+            }
             sb.AppendLine("Try a different approach than before.");
             sb.AppendLine();
         }
@@ -98,5 +116,79 @@ public class PromptBuilder
         }
 
         return sb.ToString();
+    }
+
+    private async Task AppendCoordinatorInstructions(StringBuilder sb)
+    {
+        sb.AppendLine("# Coordinator Instructions");
+        sb.AppendLine("You are a task decomposition agent. Your job is to break down this task into concrete subtasks that can be assigned to builder agents.");
+        sb.AppendLine();
+        sb.AppendLine("## Available Builder Agents");
+        var agents = await _agents.GetActiveAsync();
+        foreach (var a in agents.Where(a => a.AgentType == AgentType.Builder))
+            sb.AppendLine($"- **{a.Id}** ({a.Name}): {a.Role} — {string.Join(", ", a.Capabilities)}");
+        sb.AppendLine();
+        sb.AppendLine("## Output Format");
+        sb.AppendLine("You MUST output ONLY a JSON array of subtask objects. No other text, no markdown, no explanation.");
+        sb.AppendLine("Each object must have these fields:");
+        sb.AppendLine("```");
+        sb.AppendLine("[");
+        sb.AppendLine("  {");
+        sb.AppendLine("    \"title\": \"Short descriptive title\",");
+        sb.AppendLine("    \"description\": \"What needs to be done\",");
+        sb.AppendLine("    \"acceptanceCriteria\": \"How to verify it's done correctly\",");
+        sb.AppendLine("    \"assignedTo\": \"<agent-id from the list above>\",");
+        sb.AppendLine("    \"estimatedMinutes\": 15,");
+        sb.AppendLine("    \"blockedBy\": []");
+        sb.AppendLine("  }");
+        sb.AppendLine("]");
+        sb.AppendLine("```");
+        sb.AppendLine("If a subtask depends on another subtask from this batch, add its zero-based index to \"blockedBy\".");
+        sb.AppendLine("Do NOT write code. Do NOT execute tasks yourself. Only decompose and delegate.");
+        sb.AppendLine();
+    }
+
+    private static void AppendGateInstructions(StringBuilder sb, TaskItem task)
+    {
+        sb.AppendLine("# Validation Instructions");
+        sb.AppendLine("You are a quality gate. Review the builder's work output and validate it against the acceptance criteria.");
+        sb.AppendLine();
+        if (!string.IsNullOrWhiteSpace(task.AcceptanceCriteria))
+        {
+            sb.AppendLine("## Acceptance Criteria Checklist");
+            sb.AppendLine(task.AcceptanceCriteria);
+            sb.AppendLine();
+        }
+        if (!string.IsNullOrWhiteSpace(task.LastOutput))
+        {
+            sb.AppendLine("## Builder Output to Validate");
+            sb.AppendLine(task.LastOutput);
+            sb.AppendLine();
+        }
+        sb.AppendLine("## Output Format");
+        sb.AppendLine("You MUST output ONLY a JSON object with your verdict. No other text.");
+        sb.AppendLine("```");
+        sb.AppendLine("{\"verdict\": \"PASS\" or \"FAIL\", \"feedback\": \"Detailed explanation\"}");
+        sb.AppendLine("```");
+        sb.AppendLine("If FAIL, explain specifically what is wrong and what needs to change.");
+        sb.AppendLine("If PASS, confirm which criteria were satisfied.");
+        sb.AppendLine();
+    }
+
+    private static void AppendAnalystInstructions(StringBuilder sb)
+    {
+        sb.AppendLine("# Analyst Guardrails");
+        sb.AppendLine("You are a READ-ONLY research agent. You MUST NOT:");
+        sb.AppendLine("- Create, modify, or delete any files");
+        sb.AppendLine("- Run any commands that change system state (git commit, npm install, etc.)");
+        sb.AppendLine("- Execute any build or test commands that produce side effects");
+        sb.AppendLine();
+        sb.AppendLine("You MAY:");
+        sb.AppendLine("- Read files, search codebases, explore directories");
+        sb.AppendLine("- Run read-only commands (git log, git diff, find, grep, etc.)");
+        sb.AppendLine("- Analyze patterns, architectures, and dependencies");
+        sb.AppendLine();
+        sb.AppendLine("Output a structured summary of your findings.");
+        sb.AppendLine();
     }
 }

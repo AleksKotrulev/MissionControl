@@ -46,6 +46,7 @@ public class Dispatcher : BackgroundService
             try
             {
                 await DispatchTickAsync(stoppingToken);
+                await ReconcileParentTasksAsync();
                 await _missions.ReconcileAsync();
             }
             catch (Exception ex)
@@ -66,9 +67,11 @@ public class Dispatcher : BackgroundService
 
         if (availableSlots <= 0) return;
 
+        var dispatched = 0;
+
+        // Pass 1: Normal task dispatch
         var dispatchable = await _taskManager.GetDispatchableAsync(_config.MaxTaskRetries);
 
-        // Filter out tasks with pending decisions
         var tasksToDispatch = new List<TaskItem>();
         foreach (var task in dispatchable)
         {
@@ -91,7 +94,7 @@ public class Dispatcher : BackgroundService
             _logger.LogInformation("Dispatching task '{Title}' to agent '{Agent}'",
                 task.Title, agent.Name);
 
-            // Fire and forget — runs concurrently
+            dispatched++;
             _ = Task.Run(async () =>
             {
                 try
@@ -104,5 +107,90 @@ public class Dispatcher : BackgroundService
                 }
             }, ct);
         }
+
+        // Pass 2: Validation dispatch for AwaitingValidation tasks
+        var remainingSlots = availableSlots - dispatched;
+        if (remainingSlots <= 0) return;
+
+        var awaitingValidation = await _taskManager.GetAwaitingValidationAsync();
+        var activeRunTaskIds = activeRuns.Select(r => r.TaskId).ToHashSet();
+
+        foreach (var task in awaitingValidation)
+        {
+            if (remainingSlots <= 0) break;
+            if (activeRunTaskIds.Contains(task.Id)) continue;
+
+            var gateAgent = await FindGateAgentAsync(task);
+            if (gateAgent == null)
+            {
+                _logger.LogWarning("No active Gate agent found for validation of task '{TaskId}'", task.Id);
+                continue;
+            }
+
+            _logger.LogInformation("Dispatching validation of '{Title}' to Oracle '{Agent}'",
+                task.Title, gateAgent.Name);
+
+            remainingSlots--;
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await _runner.RunTaskAsync(gateAgent, task, ct);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Oracle validation failed for task '{TaskId}'", task.Id);
+                }
+            }, ct);
+        }
+    }
+
+    private async Task ReconcileParentTasksAsync()
+    {
+        var allTasks = await _taskManager.GetAllAsync();
+
+        // Find tasks that are parents (have children pointing to them) and are still InProgress
+        var childTasksByParent = allTasks
+            .Where(t => t.ParentTaskId != null)
+            .GroupBy(t => t.ParentTaskId!)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        foreach (var (parentId, children) in childTasksByParent)
+        {
+            var parent = allTasks.FirstOrDefault(t => t.Id == parentId);
+            if (parent == null || parent.Status != TaskItemStatus.InProgress) continue;
+
+            var allChildrenDone = children.All(c =>
+                c.Status is TaskItemStatus.Done or TaskItemStatus.Skipped);
+            var anyChildPermanentlyFailed = children.Any(c =>
+                c.Status == TaskItemStatus.Failed && c.AttemptCount >= _config.MaxTaskRetries);
+
+            if (allChildrenDone)
+            {
+                await _taskManager.SetStatusAsync(parent.Id, TaskItemStatus.Done);
+                await _comms.LogActivityAsync("parent_task_completed",
+                    $"Parent task '{parent.Title}' completed (all {children.Count} children done)",
+                    taskId: parent.Id, missionId: parent.MissionId);
+            }
+            else if (anyChildPermanentlyFailed)
+            {
+                await _taskManager.SetStatusAsync(parent.Id, TaskItemStatus.Failed);
+                await _comms.LogActivityAsync("parent_task_failed",
+                    $"Parent task '{parent.Title}' failed (child task permanently failed)",
+                    taskId: parent.Id, missionId: parent.MissionId);
+            }
+        }
+    }
+
+    private async Task<AgentDefinition?> FindGateAgentAsync(TaskItem task)
+    {
+        if (!string.IsNullOrWhiteSpace(task.ValidatedBy))
+        {
+            var specific = await _agents.GetByIdAsync(task.ValidatedBy);
+            if (specific != null && specific.Status == "active") return specific;
+        }
+
+        var agents = await _agents.GetAllAsync();
+        return agents.FirstOrDefault(a => a.AgentType == AgentType.Gate && a.Status == "active");
     }
 }
