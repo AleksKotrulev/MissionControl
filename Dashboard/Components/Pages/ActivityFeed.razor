@@ -4,22 +4,71 @@
 @inject DashboardDataService Data
 @implements IDisposable
 
-<h1>Activity Feed</h1>
-
-<div class="activity-feed">
-    @foreach (var evt in _events.OrderByDescending(e => e.Timestamp))
-    {
-        <div class="activity-event type-@evt.EventType.Replace('_', '-')">
-            <span class="timestamp">@evt.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</span>
-            <span class="event-type">@evt.EventType</span>
-            <span class="description">@evt.Description</span>
-        </div>
-    }
+<div class="page-header">
+    <h1>Activity Feed</h1>
+    <p class="subtitle">Real-time event log of system activities</p>
 </div>
 
 @if (_events.Count == 0)
 {
-    <p>No activity yet.</p>
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12" />
+        </svg>
+        <h3>No activity yet</h3>
+        <p>Events will appear here as agents start working.</p>
+    </div>
+}
+else
+{
+    <div class="timeline">
+        @{ var idx = 0; }
+        @foreach (var evt in _events.OrderByDescending(e => e.Timestamp))
+        {
+            var iconType = GetEventIconType(evt.EventType);
+
+            <div class="timeline-event" style="animation-delay: @(idx * 40)ms">
+                <div class="timeline-icon type-@iconType">
+                    @switch (iconType)
+                    {
+                        case "success":
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                            break;
+                        case "info":
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <polygon points="5 3 19 12 5 21 5 3" />
+                            </svg>
+                            break;
+                        case "danger":
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                            </svg>
+                            break;
+                        case "warning":
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                            </svg>
+                            break;
+                        default:
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                <circle cx="12" cy="12" r="10" /><line x1="12" y1="16" x2="12" y2="12" /><line x1="12" y1="8" x2="12.01" y2="8" />
+                            </svg>
+                            break;
+                    }
+                </div>
+                <div class="timeline-content">
+                    <div class="timeline-header">
+                        <span class="event-type">@evt.EventType.Replace("_", " ")</span>
+                        <span class="timestamp">@evt.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")</span>
+                    </div>
+                    <div class="event-description">@evt.Description</div>
+                </div>
+            </div>
+            idx++;
+        }
+    </div>
 }
 
 @code {
@@ -37,6 +86,20 @@
     }
 
     private async Task RefreshAsync() => _events = await Data.GetActivityLogAsync();
+
+    private static string GetEventIconType(string eventType)
+    {
+        var lower = eventType.ToLower();
+        if (lower.Contains("completed") || lower.Contains("done") || lower.Contains("success"))
+            return "success";
+        if (lower.Contains("started") || lower.Contains("dispatched") || lower.Contains("created"))
+            return "info";
+        if (lower.Contains("failed") || lower.Contains("error") || lower.Contains("killed"))
+            return "danger";
+        if (lower.Contains("decision") || lower.Contains("stalled") || lower.Contains("timeout"))
+            return "warning";
+        return "default";
+    }
 
     public void Dispose() => _timer?.Dispose();
 }

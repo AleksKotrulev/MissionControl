@@ -4,41 +4,82 @@
 @using MissionControl.Tasks
 @inject DashboardDataService Data
 
-<h1>Missions</h1>
+<div class="page-header">
+    <h1>Missions</h1>
+    <p class="subtitle">Track mission progress and task completion</p>
+</div>
 
-@foreach (var mission in _missions)
+@if (_missions.Count == 0)
 {
-    var missionTasks = _tasks.Where(t => mission.TaskIds.Contains(t.Id)).ToList();
-    var done = missionTasks.Count(t => t.Status == TaskItemStatus.Done);
-    var total = missionTasks.Count;
-    var pct = total > 0 ? (done * 100 / total) : 0;
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="2" />
+        </svg>
+        <h3>No missions yet</h3>
+        <p>Create a mission via the API to get started.</p>
+    </div>
+}
+else
+{
+    @foreach (var mission in _missions)
+    {
+        var missionTasks = _tasks.Where(t => mission.TaskIds.Contains(t.Id)).ToList();
+        var done = missionTasks.Count(t => t.Status == TaskItemStatus.Done);
+        var total = missionTasks.Count;
+        var pct = total > 0 ? (done * 100 / total) : 0;
+        var progressClass = pct < 30 ? "progress-low" : pct < 70 ? "progress-mid" : "progress-high";
 
-    <div class="mission-card status-@mission.Status.ToString().ToLower()">
-        <h3>@mission.Title <span class="badge @mission.Status.ToString().ToLower()">@mission.Status</span></h3>
-        <p>@mission.Description</p>
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: @(pct)%"></div>
-        </div>
-        <div class="progress-text">@done / @total tasks complete (@pct%)</div>
-        <div class="task-list">
-            @foreach (var task in missionTasks)
+        <div class="mission-card">
+            <h3>
+                @mission.Title
+                <span class="badge @mission.Status.ToString().ToLower()">@mission.Status</span>
+            </h3>
+            <p>@mission.Description</p>
+            <div class="progress-bar">
+                <div class="progress-fill @progressClass" style="width: @(pct)%"></div>
+            </div>
+            <div class="progress-text">@done / @total tasks complete (@pct%)</div>
+            @if (missionTasks.Count > 0)
             {
-                <div class="task-row">
-                    <span class="task-status-dot status-@task.Status.ToString().ToLower()"></span>
-                    @task.Title — @task.Status
-                    @if (!string.IsNullOrWhiteSpace(task.AssignedTo))
+                <div class="task-list">
+                    @foreach (var task in missionTasks)
                     {
-                        <span class="agent">(@task.AssignedTo)</span>
+                        <div class="task-row">
+                            @switch (task.Status)
+                            {
+                                case TaskItemStatus.Done:
+                                    <svg class="task-status-icon status-done" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+                                    </svg>
+                                    break;
+                                case TaskItemStatus.InProgress:
+                                    <svg class="task-status-icon status-inprogress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" />
+                                    </svg>
+                                    break;
+                                case TaskItemStatus.Failed:
+                                    <svg class="task-status-icon status-failed" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                                    </svg>
+                                    break;
+                                default:
+                                    <svg class="task-status-icon status-notstarted" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10" />
+                                    </svg>
+                                    break;
+                            }
+                            <span>@task.Title</span>
+                            <span class="badge" style="margin-left: auto;">@task.Status</span>
+                            @if (!string.IsNullOrWhiteSpace(task.AssignedTo))
+                            {
+                                <span class="agent">@task.AssignedTo</span>
+                            }
+                        </div>
                     }
                 </div>
             }
         </div>
-    </div>
-}
-
-@if (_missions.Count == 0)
-{
-    <p>No missions yet. Create one via the API.</p>
+    }
 }
 
 @code {

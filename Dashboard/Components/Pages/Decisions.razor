@@ -3,48 +3,112 @@
 @using MissionControl.Dashboard.Services
 @inject DashboardDataService Data
 
-<h1>Decisions</h1>
+<div class="page-header">
+    <h1>Decisions</h1>
+    <p class="subtitle">Review and respond to agent decision requests</p>
+</div>
 
-<h2>Pending</h2>
-@foreach (var d in _decisions.Where(d => d.Status == "pending"))
+@{ var pending = _decisions.Where(d => d.Status == "pending").ToList(); }
+@{ var resolved = _decisions.Where(d => d.Status == "resolved").OrderByDescending(d => d.ResolvedAt).ToList(); }
+
+<div class="section-header">
+    <h2>Pending</h2>
+    @if (pending.Count > 0)
+    {
+        <span class="badge badge-warning">@pending.Count</span>
+    }
+</div>
+
+@if (pending.Count == 0)
 {
-    <div class="decision-card pending">
-        <h3>@d.Question</h3>
-        <div class="decision-meta">
-            Agent: @d.AgentId | Task: @d.TaskId | @d.CreatedAt.ToString("yyyy-MM-dd HH:mm")
-        </div>
-        @if (!string.IsNullOrWhiteSpace(d.Context))
-        {
-            <p class="context">@d.Context</p>
-        }
-        @if (d.Options.Count > 0)
-        {
-            <div class="options">
-                @foreach (var opt in d.Options)
-                {
-                    <button class="option-btn" @onclick="() => ResolveAsync(d.Id, opt)">@opt</button>
-                }
-            </div>
-        }
-        <div class="custom-response">
-            <input type="text" @bind="_customResponse" placeholder="Or type a custom response..." />
-            <button @onclick="() => ResolveAsync(d.Id, _customResponse)">Submit</button>
-        </div>
+    <div class="empty-state" style="padding: 2rem;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" />
+        </svg>
+        <h3>All caught up!</h3>
+        <p>No pending decisions at the moment.</p>
     </div>
 }
-
-<h2>Resolved</h2>
-@foreach (var d in _decisions.Where(d => d.Status == "resolved").OrderByDescending(d => d.ResolvedAt))
+else
 {
-    <div class="decision-card resolved">
-        <h3>@d.Question</h3>
-        <div class="decision-meta">Resolved: @d.Response</div>
+    @foreach (var d in pending)
+    {
+        <div class="decision-card pending">
+            <h3>@d.Question</h3>
+            <div class="decision-meta">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>
+                @d.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                &middot; Agent: <strong>@d.AgentId</strong>
+                &middot; Task: <strong>@d.TaskId</strong>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(d.Context))
+            {
+                <div class="context">@d.Context</div>
+            }
+            @if (d.Options.Count > 0)
+            {
+                <div class="options">
+                    @foreach (var opt in d.Options)
+                    {
+                        <button class="option-btn" @onclick="() => ResolveAsync(d.Id, opt)">@opt</button>
+                    }
+                </div>
+            }
+            <div class="custom-response">
+                <input type="text" @bind="_customResponse" placeholder="Or type a custom response..." />
+                <button @onclick="() => ResolveAsync(d.Id, _customResponse)">Submit</button>
+            </div>
+        </div>
+    }
+}
+
+<div class="section-header">
+    <h2>Resolved</h2>
+    <span class="badge">@resolved.Count</span>
+    @if (resolved.Count > 0)
+    {
+        <button class="section-toggle" @onclick="() => _showResolved = !_showResolved">
+            @(_showResolved ? "Hide" : "Show")
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+            </svg>
+        </button>
+    }
+</div>
+
+@if (_showResolved)
+{
+    @foreach (var d in resolved)
+    {
+        <div class="decision-card resolved">
+            <h3>@d.Question</h3>
+            <div class="decision-meta">
+                Resolved: <strong>@d.Response</strong>
+                @if (d.ResolvedAt.HasValue)
+                {
+                    <span>&middot; @d.ResolvedAt.Value.ToString("yyyy-MM-dd HH:mm")</span>
+                }
+            </div>
+        </div>
+    }
+}
+
+@if (_feedback != null)
+{
+    <div class="toast toast-success">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="20 6 9 17 4 12" />
+        </svg>
+        @_feedback
     </div>
 }
 
 @code {
     private List<Decision> _decisions = [];
     private string _customResponse = "";
+    private bool _showResolved;
+    private string? _feedback;
+    private Timer? _feedbackTimer;
 
     protected override async Task OnInitializedAsync() =>
         _decisions = await Data.GetDecisionsAsync();
@@ -54,5 +118,12 @@
         await Data.ResolveDecisionAsync(id, response);
         _decisions = await Data.GetDecisionsAsync();
         _customResponse = "";
+        _feedback = "Decision resolved successfully";
+        _feedbackTimer?.Dispose();
+        _feedbackTimer = new Timer(_ =>
+        {
+            _feedback = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, Timeout.Infinite);
     }
 }

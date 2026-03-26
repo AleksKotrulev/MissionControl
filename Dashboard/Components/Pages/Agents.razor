@@ -4,36 +4,71 @@
 @using MissionControl.Orchestrator
 @inject DashboardDataService Data
 
-<h1>Agents</h1>
-
-<div class="agent-grid">
-    @foreach (var agent in _agents)
-    {
-        var activeRun = _activeRuns.FirstOrDefault(r => r.AgentId == agent.Id);
-        <div class="agent-card status-@(activeRun != null ? "running" : agent.Status)">
-            <h3>@agent.Name</h3>
-            <div class="agent-role">@agent.Role</div>
-            <p>@agent.Description</p>
-            <div class="agent-status">
-                @if (activeRun != null)
-                {
-                    <span class="badge running">Running task @activeRun.TaskId</span>
-                }
-                else
-                {
-                    <span class="badge @agent.Status">@agent.Status</span>
-                }
-            </div>
-            <div class="capabilities">
-                @foreach (var cap in agent.Capabilities)
-                {
-                    <span class="cap-tag">@cap</span>
-                }
-            </div>
-            <div class="working-dir">@(string.IsNullOrWhiteSpace(agent.WorkingDirectory) ? "(any project)" : agent.WorkingDirectory)</div>
-        </div>
-    }
+<div class="page-header">
+    <h1>Agents</h1>
+    <p class="subtitle">Connected agents and their current status</p>
 </div>
+
+@if (_agents.Count == 0)
+{
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+        </svg>
+        <h3>No agents registered</h3>
+        <p>Agents will appear here once they are configured.</p>
+    </div>
+}
+else
+{
+    <div class="agent-grid">
+        @{ var idx = 0; }
+        @foreach (var agent in _agents)
+        {
+            var activeRun = _activeRuns.FirstOrDefault(r => r.AgentId == agent.Id);
+            var isRunning = activeRun != null;
+            var statusClass = isRunning ? "running" : agent.Status;
+
+            <div class="agent-card status-@(isRunning ? "running" : agent.Status)" style="animation-delay: @(idx * 60)ms">
+                <div class="agent-avatar status-@statusClass">
+                    @agent.Name[0].ToString().ToUpper()
+                </div>
+                <div class="agent-info">
+                    <h3>
+                        @agent.Name
+                        @if (isRunning)
+                        {
+                            <span class="pulse-dot"></span>
+                        }
+                    </h3>
+                    <div class="agent-role">@agent.Role</div>
+                    <p>@agent.Description</p>
+                    <div class="agent-status">
+                        @if (isRunning)
+                        {
+                            <span class="badge running">Running task @activeRun!.TaskId</span>
+                        }
+                        else
+                        {
+                            <span class="badge @agent.Status">@agent.Status</span>
+                        }
+                    </div>
+                    @if (agent.Capabilities.Count > 0)
+                    {
+                        <div class="capabilities">
+                            @foreach (var cap in agent.Capabilities)
+                            {
+                                <span class="cap-tag">@cap</span>
+                            }
+                        </div>
+                    }
+                    <div class="working-dir">@(string.IsNullOrWhiteSpace(agent.WorkingDirectory) ? "(any project)" : agent.WorkingDirectory)</div>
+                </div>
+            </div>
+            idx++;
+        }
+    </div>
+}
 
 @code {
     private List<AgentDefinition> _agents = [];

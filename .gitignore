@@ -30,3 +30,12 @@ Thumbs.db
 ehthumbs.db
 Desktop.ini
 .DS_Store
+
+############################
+# Temporary files
+############################
+*.tmp
+*.temp
+*.swp
+/.vs
+.claude/settings.local.json

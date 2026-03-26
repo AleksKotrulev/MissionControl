@@ -1,13 +1,46 @@
 @inherits LayoutComponentBase
 
 <div class="layout">
-    <nav class="sidebar">
+    <div class="sidebar-backdrop @(_mobileSidebarOpen ? "visible" : "")" @onclick="CloseMobile"></div>
+
+    <button class="mobile-menu-btn" @onclick="ToggleMobile" aria-label="Toggle menu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="18" x2="21" y2="18" />
+        </svg>
+    </button>
+
+    <nav class="sidebar @(_collapsed ? "collapsed" : "") @(_mobileSidebarOpen ? "mobile-open" : "")" role="navigation">
         <div class="sidebar-header">
+            <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4.5 16.5c-1.5 1.38-2 2.5-2 3.5 0 2.5 3.5 2.5 3.5 0 0-1-.5-2.5-2-3.5" />
+                <path d="M12 2l1.5 5.5L19 9l-4 3.5 1 5.5-4-3-4 3 1-5.5L5 9l5.5-1.5z" />
+            </svg>
             <h2>Mission Control</h2>
         </div>
-        <NavMenu />
+
+        <div class="sidebar-nav">
+            <NavMenu />
+        </div>
+
+        <div class="sidebar-footer">
+            <button class="sidebar-toggle" @onclick="ToggleSidebar" aria-label="Toggle sidebar">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polyline points="15 18 9 12 15 6" />
+                </svg>
+            </button>
+        </div>
     </nav>
-    <main class="content">
+
+    <main class="content" role="main">
         @Body
     </main>
 </div>
+
+@code {
+    private bool _collapsed;
+    private bool _mobileSidebarOpen;
+
+    private void ToggleSidebar() => _collapsed = !_collapsed;
+    private void ToggleMobile() => _mobileSidebarOpen = !_mobileSidebarOpen;
+    private void CloseMobile() => _mobileSidebarOpen = false;
+}

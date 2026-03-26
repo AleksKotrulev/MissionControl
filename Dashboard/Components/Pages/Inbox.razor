@@ -3,31 +3,73 @@
 @using MissionControl.Dashboard.Services
 @inject DashboardDataService Data
 
-<h1>Inbox</h1>
-
-<div class="filter-bar">
-    <button class="@(_filter == "all" ? "active" : "")" @onclick="@(() => SetFilter("all"))">All</button>
-    <button class="@(_filter == "delegation" ? "active" : "")" @onclick="@(() => SetFilter("delegation"))">Delegations</button>
-    <button class="@(_filter == "report" ? "active" : "")" @onclick="@(() => SetFilter("report"))">Reports</button>
-    <button class="@(_filter == "notification" ? "active" : "")" @onclick="@(() => SetFilter("notification"))">Notifications</button>
+<div class="page-header">
+    <h1>Inbox</h1>
+    <p class="subtitle">Messages from agents and system notifications</p>
 </div>
 
-@foreach (var msg in GetFiltered().OrderByDescending(m => m.CreatedAt))
+<div class="filter-bar">
+    <button class="@(_filter == "all" ? "active" : "")" @onclick="@(() => SetFilter("all"))">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" /><rect x="14" y="3" width="7" height="7" /><rect x="3" y="14" width="7" height="7" /><rect x="14" y="14" width="7" height="7" /></svg>
+        All
+    </button>
+    <button class="@(_filter == "delegation" ? "active" : "")" @onclick="@(() => SetFilter("delegation"))">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 14 20 9 15 4" /><path d="M4 20v-7a4 4 0 0 1 4-4h12" /></svg>
+        Delegations
+    </button>
+    <button class="@(_filter == "report" ? "active" : "")" @onclick="@(() => SetFilter("report"))">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><polyline points="14 2 14 8 20 8" /><line x1="16" y1="13" x2="8" y2="13" /><line x1="16" y1="17" x2="8" y2="17" /></svg>
+        Reports
+    </button>
+    <button class="@(_filter == "notification" ? "active" : "")" @onclick="@(() => SetFilter("notification"))">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.73 21a2 2 0 0 1-3.46 0" /></svg>
+        Notifications
+    </button>
+</div>
+
+@{
+    var filtered = GetFiltered().OrderByDescending(m => m.CreatedAt).ToList();
+}
+
+@if (filtered.Count == 0)
 {
-    <div class="inbox-message type-@msg.Type status-@msg.Status">
-        <div class="msg-header">
-            <span class="from">@msg.From</span> &rarr; <span class="to">@msg.To</span>
-            <span class="badge @msg.Type">@msg.Type</span>
-            <span class="timestamp">@msg.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
-        </div>
-        <div class="msg-subject">@msg.Subject</div>
-        <div class="msg-body">@msg.Body</div>
+    <div class="empty-state">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" /><polyline points="22,6 12,13 2,6" />
+        </svg>
+        <h3>No messages</h3>
+        <p>@(_filter == "all" ? "Your inbox is empty." : $"No {_filter} messages.")</p>
     </div>
+}
+else
+{
+    @foreach (var msg in filtered)
+    {
+        var isExpanded = _expandedMessages.Contains(msg.CreatedAt.Ticks.ToString());
+        <div class="inbox-message type-@msg.Type status-@msg.Status">
+            <div class="msg-header">
+                <span class="msg-from">@msg.From</span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" /></svg>
+                <span class="msg-to">@msg.To</span>
+                <span class="badge @msg.Type">@msg.Type</span>
+                <span class="timestamp">@msg.CreatedAt.ToString("yyyy-MM-dd HH:mm")</span>
+            </div>
+            <div class="msg-subject">@msg.Subject</div>
+            <div class="msg-body @(isExpanded ? "" : "collapsed")">@msg.Body</div>
+            @if (!string.IsNullOrWhiteSpace(msg.Body) && msg.Body.Length > 120)
+            {
+                <button class="msg-toggle" @onclick="() => ToggleMessage(msg.CreatedAt.Ticks.ToString())">
+                    @(isExpanded ? "Show less" : "Show more")
+                </button>
+            }
+        </div>
+    }
 }
 
 @code {
     private List<InboxMessage> _messages = [];
     private string _filter = "all";
+    private HashSet<string> _expandedMessages = new();
 
     protected override async Task OnInitializedAsync() =>
         _messages = await Data.GetInboxAsync();
@@ -36,4 +78,10 @@
 
     private IEnumerable<InboxMessage> GetFiltered() =>
         _filter == "all" ? _messages : _messages.Where(m => m.Type == _filter);
+
+    private void ToggleMessage(string id)
+    {
+        if (!_expandedMessages.Add(id))
+            _expandedMessages.Remove(id);
+    }
 }

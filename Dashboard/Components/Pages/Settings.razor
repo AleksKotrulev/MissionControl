@@ -3,65 +3,182 @@
 @using MissionControl.Dashboard.Services
 @inject DashboardDataService Data
 
-<h1>Settings</h1>
+<div class="page-header">
+    <h1>Settings</h1>
+    <p class="subtitle">Configure Mission Control behavior</p>
+</div>
 
-<div class="settings-form">
-    <div class="form-group">
-        <label>Max Parallel Agents</label>
-        <input type="number" @bind="_config.MaxParallelAgents" min="1" max="10" />
-    </div>
-    <div class="form-group">
-        <label>Dispatch Interval (seconds)</label>
-        <input type="number" @bind="_config.DispatchIntervalSeconds" min="5" max="120" />
-    </div>
-    <div class="form-group">
-        <label>Max Task Retries</label>
-        <input type="number" @bind="_config.MaxTaskRetries" min="1" max="10" />
-    </div>
-    <div class="form-group">
-        <label>Task Timeout (minutes)</label>
-        <input type="number" @bind="_config.TaskTimeoutMinutes" min="5" max="120" />
-    </div>
-    <div class="form-group">
-        <label>Max Turns Per Session</label>
-        <input type="number" @bind="_config.MaxTurnsPerSession" min="10" max="200" />
-    </div>
-    <div class="form-group">
-        <label>Max Continuations</label>
-        <input type="number" @bind="_config.MaxContinuations" min="1" max="10" />
-    </div>
-    <div class="form-group">
-        <label>Claude Code Path</label>
-        <input type="text" @bind="_config.ClaudeCodePath" />
-    </div>
-    <div class="form-group">
-        <label>Working Directory</label>
-        <input type="text" @bind="_config.WorkingDirectory" />
+<div class="settings-grid">
+    <!-- Agent Configuration -->
+    <div class="settings-card">
+        <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+            </svg>
+            Agent Configuration
+        </h3>
+        <div class="card-subtitle">Control how agents are dispatched and managed</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Max Parallel Agents</label>
+                <input type="number" @bind="_config.MaxParallelAgents" min="1" max="10" />
+            </div>
+            <div class="form-group">
+                <label>Dispatch Interval (seconds)</label>
+                <input type="number" @bind="_config.DispatchIntervalSeconds" min="5" max="120" />
+            </div>
+        </div>
     </div>
 
-    <button class="save-btn" @onclick="SaveAsync">Save Settings</button>
-    @if (_saved)
+    <!-- Task Configuration -->
+    <div class="settings-card">
+        <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><rect x="14" y="14" width="7" height="7" rx="1" />
+            </svg>
+            Task Configuration
+        </h3>
+        <div class="card-subtitle">Set retry limits, timeouts, and session parameters</div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Max Task Retries</label>
+                <input type="number" @bind="_config.MaxTaskRetries" min="1" max="10" />
+            </div>
+            <div class="form-group">
+                <label>Task Timeout (minutes)</label>
+                <input type="number" @bind="_config.TaskTimeoutMinutes" min="5" max="120" />
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Max Turns Per Session</label>
+                <input type="number" @bind="_config.MaxTurnsPerSession" min="10" max="200" />
+            </div>
+            <div class="form-group">
+                <label>Max Continuations</label>
+                <input type="number" @bind="_config.MaxContinuations" min="1" max="10" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Paths -->
+    <div class="settings-card">
+        <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
+            </svg>
+            Paths
+        </h3>
+        <div class="card-subtitle">Configure file system paths for agent operations</div>
+        <div class="form-group">
+            <label>Claude Code Path</label>
+            <input type="text" @bind="_config.ClaudeCodePath" />
+        </div>
+        <div class="form-group">
+            <label>Working Directory</label>
+            <input type="text" @bind="_config.WorkingDirectory" />
+        </div>
+    </div>
+
+    <!-- Save -->
+    <div class="settings-actions">
+        <button class="btn btn-primary" @onclick="SaveAsync">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+            Save Settings
+        </button>
+    </div>
+
+    @if (_feedback != null)
     {
-        <span class="saved-msg">Settings saved (restart daemon to apply)</span>
+        <div class="toast toast-success">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="20 6 9 17 4 12" />
+            </svg>
+            @_feedback
+        </div>
     }
 
-    <hr />
-    <h2>Emergency Stop</h2>
-    <p>Kills all running agent sessions immediately.</p>
-    <button class="emergency-btn" @onclick="EmergencyStopAsync">EMERGENCY STOP</button>
+    <!-- Danger Zone -->
+    <div class="settings-card danger-zone">
+        <h3>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+            </svg>
+            Danger Zone
+        </h3>
+        <div class="card-subtitle">These actions are destructive and cannot be undone</div>
+        <p style="font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: 1rem;">
+            Kills all running agent sessions immediately. Use this to halt all operations in case of emergency.
+        </p>
+        @if (_confirmStop)
+        {
+            <div class="confirm-warning">Are you sure? This will kill all running agents.</div>
+            <div style="display:flex;gap:0.5rem;margin-top:0.5rem;">
+                <button class="emergency-btn" @onclick="ExecuteEmergencyStop">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                        <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                    </svg>
+                    CONFIRM STOP
+                </button>
+                <button class="btn btn-secondary" @onclick="() => _confirmStop = false">Cancel</button>
+            </div>
+        }
+        else
+        {
+            <button class="emergency-btn" @onclick="() => _confirmStop = true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+                EMERGENCY STOP
+            </button>
+        }
+
+        @if (_stopFeedback != null)
+        {
+            <div class="toast toast-danger" style="margin-top:0.75rem;">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2" /><line x1="15" y1="9" x2="9" y2="15" /><line x1="9" y1="9" x2="15" y2="15" />
+                </svg>
+                @_stopFeedback
+            </div>
+        }
+    </div>
 </div>
 
 @code {
     private MissionControlConfig _config = new();
-    private bool _saved;
+    private bool _confirmStop;
+    private string? _feedback;
+    private string? _stopFeedback;
+    private Timer? _feedbackTimer;
+    private Timer? _stopTimer;
 
     protected override void OnInitialized() => _config = Data.GetConfig();
 
     private async Task SaveAsync()
     {
         await Data.SaveConfigAsync(_config);
-        _saved = true;
+        _feedback = "Settings saved (restart daemon to apply)";
+        _feedbackTimer?.Dispose();
+        _feedbackTimer = new Timer(_ =>
+        {
+            _feedback = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, Timeout.Infinite);
     }
 
-    private async Task EmergencyStopAsync() => await Data.EmergencyStopAsync();
+    private async Task ExecuteEmergencyStop()
+    {
+        await Data.EmergencyStopAsync();
+        _confirmStop = false;
+        _stopFeedback = "All agents stopped";
+        _stopTimer?.Dispose();
+        _stopTimer = new Timer(_ =>
+        {
+            _stopFeedback = null;
+            InvokeAsync(StateHasChanged);
+        }, null, 3000, Timeout.Infinite);
+    }
 }

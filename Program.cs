@@ -7,7 +7,11 @@ using MissionControl.Missions;
 using MissionControl.Orchestrator;
 using MissionControl.Tasks;
 
-var builder = WebApplication.CreateBuilder(args);
+var builder = WebApplication.CreateBuilder(new WebApplicationOptions
+{
+    Args = args,
+    WebRootPath = Path.Combine("Dashboard", "wwwroot")
+});
 
 // Load config from data/config.json
 var config = await JsonDataStore.ReadAsync<MissionControlConfig>(DataPaths.Config);
